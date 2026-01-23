@@ -315,8 +315,10 @@ function updateRecordButtons() {
   calculateAvgBtn.disabled = savedRecords.length === 0;
   calculateAvgBtn.textContent = `${savedRecords.length}회 평균값 계산`;
 
-  // 초기화 버튼: 저장된 기록이 있을 때만 활성화
-  resetRecordsBtn.disabled = savedRecords.length === 0;
+  // 초기화 버튼: 데이터가 있을 때만 활성화
+  const urls = getUrls();
+  const measurements = getMeasurements();
+  resetRecordsBtn.disabled = urls.length === 0 && measurements.length === 0 && savedRecords.length === 0;
 }
 
 function saveRecord() {
@@ -385,13 +387,21 @@ function deleteRecord(recordNumber) {
 }
 
 function resetRecords() {
-  if (!confirm('모든 저장된 기록을 삭제하시겠습니까?')) return;
+  if (!confirm('모든 데이터(URL 목록, 측정 결과, 저장된 기록)를 삭제하시겠습니까?')) return;
 
+  // 모든 localStorage 데이터 삭제
+  saveUrls([]);
+  saveMeasurements([]);
   saveSavedRecords([]);
+  currentMeasurements = [];
+
+  // UI 갱신
+  renderUrlList();
+  renderResults();
   renderSavedRecords();
   updateRecordButtons();
   hideAvgResults();
-  showStatus('모든 기록이 초기화되었습니다.', '');
+  showStatus('모든 데이터가 초기화되었습니다.', '');
 }
 
 function calculateAndShowAverage() {
