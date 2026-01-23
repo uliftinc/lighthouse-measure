@@ -5,12 +5,12 @@
 - [x] npm scripts 설정 (serve 명령어)
 
 ## 2. 서버 구현 (server.js)
-- [ ] Express 서버 기본 설정 (포트 3000)
-- [ ] 정적 파일 제공 설정 (web/ 폴더)
-- [ ] `POST /api/measure` 엔드포인트 구현
-  - [ ] Request body에서 url 추출
-  - [ ] measure.js 호출하여 측정 실행
-  - [ ] Response: { url, measuredAt, metrics } 반환
+- [x] Express 서버 기본 설정 (포트 3000)
+- [x] 정적 파일 제공 설정 (web/ 폴더)
+- [x] `POST /api/measure` 엔드포인트 구현
+  - [x] Request body에서 url 추출
+  - [x] measure.js 호출하여 측정 실행
+  - [x] Response: { url, measuredAt, metrics } 반환
 
 ## 3. 측정 로직 구현 (measure.js)
 - [ ] chrome-launcher로 headless Chrome 실행
