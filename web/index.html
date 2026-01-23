@@ -26,11 +26,19 @@
         <h2>측정 대상 URL</h2>
         <ul id="urlList"></ul>
         <div class="url-actions">
-          <div class="preset-select">
-            <label for="presetSelect">성능 환경:</label>
-            <select id="presetSelect">
-              <option value="none">No Throttling</option>
-            </select>
+          <div class="throttling-selects">
+            <div class="preset-select">
+              <label for="networkSelect">Network:</label>
+              <select id="networkSelect">
+                <option value="none">No throttling</option>
+              </select>
+            </div>
+            <div class="preset-select">
+              <label for="cpuSelect">CPU:</label>
+              <select id="cpuSelect">
+                <option value="1">No throttling</option>
+              </select>
+            </div>
           </div>
           <button id="measureAllBtn" class="measure-btn" disabled>전체 측정</button>
         </div>

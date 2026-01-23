@@ -2,35 +2,48 @@ import lighthouse from 'lighthouse';
 import * as chromeLauncher from 'chrome-launcher';
 import { throttling as lighthouseThrottling } from 'lighthouse/core/config/constants.js';
 
-// Throttling 프리셋
-export const THROTTLING_PRESETS = {
+// Network 프리셋
+export const NETWORK_PRESETS = {
   none: {
-    name: 'No Throttling',
-    throttlingMethod: 'provided',
-    throttling: {
-      rttMs: 0,
-      throughputKbps: 0,
-      cpuSlowdownMultiplier: 1,
-      requestLatencyMs: 0,
-      downloadThroughputKbps: 0,
-      uploadThroughputKbps: 0
-    }
+    name: 'No throttling',
+    rttMs: 0,
+    throughputKbps: 0,
+    requestLatencyMs: 0,
+    downloadThroughputKbps: 0,
+    uploadThroughputKbps: 0
   },
-  desktopDense4G: {
-    name: 'Desktop (Fast 4G)',
-    throttlingMethod: 'simulate',
-    throttling: lighthouseThrottling.desktopDense4G
+  fast4g: {
+    name: 'Fast 4G',
+    rttMs: 40,
+    throughputKbps: 10240,
+    requestLatencyMs: 0,
+    downloadThroughputKbps: 0,
+    uploadThroughputKbps: 0
   },
-  mobileSlow4G: {
-    name: 'Mobile (Slow 4G)',
-    throttlingMethod: 'simulate',
-    throttling: lighthouseThrottling.mobileSlow4G
+  slow4g: {
+    name: 'Slow 4G',
+    rttMs: 150,
+    throughputKbps: 1638.4,
+    requestLatencyMs: 562.5,
+    downloadThroughputKbps: 1474.56,
+    uploadThroughputKbps: 675
   },
-  mobileRegular3G: {
-    name: 'Mobile (3G)',
-    throttlingMethod: 'simulate',
-    throttling: lighthouseThrottling.mobileRegular3G
+  regular3g: {
+    name: '3G',
+    rttMs: 300,
+    throughputKbps: 700,
+    requestLatencyMs: 1125,
+    downloadThroughputKbps: 630,
+    uploadThroughputKbps: 630
   }
+};
+
+// CPU throttling 옵션
+export const CPU_PRESETS = {
+  '1': { name: 'No throttling', multiplier: 1 },
+  '4': { name: '4x slowdown', multiplier: 4 },
+  '6': { name: '6x slowdown', multiplier: 6 },
+  '20': { name: '20x slowdown', multiplier: 20 }
 };
 
 // 기본 Lighthouse 옵션
@@ -51,12 +64,31 @@ const baseLighthouseOptions = {
 /**
  * 단일 URL의 성능을 측정하고 결과를 반환
  * @param {string} url - 측정할 URL
- * @param {string} preset - throttling 프리셋 (none, desktopDense4G, mobileSlow4G, mobileRegular3G)
- * @returns {Promise<{url: string, measuredAt: string, preset: string, metrics: {score: number, LCP_ms: number, FCP_ms: number, TBT_ms: number}}>}
+ * @param {object} options - throttling 옵션
+ * @param {string} options.network - 네트워크 프리셋 (none, fast4g, slow4g, regular3g)
+ * @param {string} options.cpu - CPU slowdown (1, 4, 6, 20)
+ * @returns {Promise<{url: string, measuredAt: string, throttling: object, metrics: {score: number, LCP_ms: number, FCP_ms: number, TBT_ms: number}}>}
  */
-export async function measureUrl(url, preset = 'none') {
-  // 프리셋 설정 가져오기
-  const presetConfig = THROTTLING_PRESETS[preset] || THROTTLING_PRESETS.none;
+export async function measureUrl(url, options = {}) {
+  const { network = 'none', cpu = '1' } = options;
+
+  // 설정 가져오기
+  const networkConfig = NETWORK_PRESETS[network] || NETWORK_PRESETS.none;
+  const cpuConfig = CPU_PRESETS[cpu] || CPU_PRESETS['1'];
+
+  // throttling이 적용되는지 확인
+  const hasThrottling = network !== 'none' || cpu !== '1';
+  const throttlingMethod = hasThrottling ? 'simulate' : 'provided';
+
+  // throttling 설정 구성
+  const throttling = {
+    rttMs: networkConfig.rttMs,
+    throughputKbps: networkConfig.throughputKbps,
+    requestLatencyMs: networkConfig.requestLatencyMs,
+    downloadThroughputKbps: networkConfig.downloadThroughputKbps,
+    uploadThroughputKbps: networkConfig.uploadThroughputKbps,
+    cpuSlowdownMultiplier: cpuConfig.multiplier
+  };
 
   // Chrome 실행
   const chrome = await chromeLauncher.launch({
@@ -67,8 +99,8 @@ export async function measureUrl(url, preset = 'none') {
     // Lighthouse 측정 실행
     const result = await lighthouse(url, {
       ...baseLighthouseOptions,
-      throttlingMethod: presetConfig.throttlingMethod,
-      throttling: presetConfig.throttling,
+      throttlingMethod,
+      throttling,
       port: chrome.port
     });
 
@@ -88,7 +120,7 @@ export async function measureUrl(url, preset = 'none') {
     return {
       url,
       measuredAt: new Date().toISOString(),
-      preset,
+      throttling: { network, cpu },
       metrics
     };
   } finally {

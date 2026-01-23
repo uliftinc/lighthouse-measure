@@ -12,7 +12,8 @@ let currentMeasurements = [];
 const urlInput = document.getElementById('urlInput');
 const addUrlBtn = document.getElementById('addUrlBtn');
 const urlList = document.getElementById('urlList');
-const presetSelect = document.getElementById('presetSelect');
+const networkSelect = document.getElementById('networkSelect');
+const cpuSelect = document.getElementById('cpuSelect');
 const measureAllBtn = document.getElementById('measureAllBtn');
 const statusSection = document.getElementById('statusSection');
 const statusMessage = document.getElementById('statusMessage');
@@ -48,12 +49,22 @@ async function loadPresets() {
     const response = await fetch('/api/presets');
     const presets = await response.json();
 
-    presetSelect.innerHTML = '';
-    presets.forEach(preset => {
+    // Network 프리셋
+    networkSelect.innerHTML = '';
+    presets.network.forEach(preset => {
       const option = document.createElement('option');
       option.value = preset.key;
       option.textContent = preset.name;
-      presetSelect.appendChild(option);
+      networkSelect.appendChild(option);
+    });
+
+    // CPU 프리셋
+    cpuSelect.innerHTML = '';
+    presets.cpu.forEach(preset => {
+      const option = document.createElement('option');
+      option.value = preset.key;
+      option.textContent = preset.name;
+      cpuSelect.appendChild(option);
     });
   } catch (error) {
     console.error('Failed to load presets:', error);
@@ -172,11 +183,11 @@ function renderUrlList() {
 // 측정 기능
 // ============================================
 
-async function measureUrlApi(url, preset) {
+async function measureUrlApi(url, network, cpu) {
   const response = await fetch('/api/measure', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url, preset })
+    body: JSON.stringify({ url, network, cpu })
   });
 
   if (!response.ok) {
@@ -190,7 +201,8 @@ async function measureAll() {
   const urls = getUrls();
   if (urls.length === 0) return;
 
-  const preset = presetSelect.value;
+  const network = networkSelect.value;
+  const cpu = cpuSelect.value;
 
   measureAllBtn.disabled = true;
   measureAllBtn.classList.add('running');
@@ -204,7 +216,7 @@ async function measureAll() {
     showStatus(`측정 중... (${i + 1}/${urls.length}) ${url}`, 'running');
 
     try {
-      const result = await measureUrlApi(url, preset);
+      const result = await measureUrlApi(url, network, cpu);
       currentMeasurements.push(result);
       saveMeasurement(result);
       renderResults();

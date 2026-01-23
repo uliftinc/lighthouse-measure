@@ -61,14 +61,18 @@
 - [x] 평균값 계산 정확성 확인
 
 ## 8. 성능 환경 설정 기능
-- [x] Lighthouse 내장 프리셋 활용
-  - [x] mobileSlow4G (RTT 150ms, 1.6Mbps, CPU 4x)
-  - [x] mobileRegular3G (RTT 300ms, 700Kbps, CPU 4x)
-  - [x] desktopDense4G (RTT 40ms, 10Mbps, CPU 1x)
-  - [x] No throttling (현재 기본값)
-- [x] throttlingMethod 선택 (simulate/devtools/provided)
-- [x] UI에 프리셋 선택 드롭다운 추가
-- [x] 측정 API에 throttling 옵션 전달
+- [x] Network throttling 프리셋
+  - [x] No throttling
+  - [x] Fast 4G (RTT 40ms, 10Mbps)
+  - [x] Slow 4G (RTT 150ms, 1.6Mbps)
+  - [x] 3G (RTT 300ms, 700Kbps)
+- [x] CPU throttling 프리셋 (별도 선택)
+  - [x] No throttling (1x)
+  - [x] 4x slowdown
+  - [x] 6x slowdown
+  - [x] 20x slowdown
+- [x] UI에 Network/CPU 별도 드롭다운 추가
+- [x] 측정 API에 network, cpu 옵션 전달
 
 ## 9. 측정 기록 저장 및 평균 계산 기능
 
