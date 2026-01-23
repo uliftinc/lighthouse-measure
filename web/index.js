@@ -315,10 +315,6 @@ function updateRecordButtons() {
   calculateAvgBtn.disabled = savedRecords.length === 0;
   calculateAvgBtn.textContent = `${savedRecords.length}회 평균값 계산`;
 
-  // 초기화 버튼: 데이터가 있을 때만 활성화
-  const urls = getUrls();
-  const measurements = getMeasurements();
-  resetRecordsBtn.disabled = urls.length === 0 && measurements.length === 0 && savedRecords.length === 0;
 }
 
 function saveRecord() {
