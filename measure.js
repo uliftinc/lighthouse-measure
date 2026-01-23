@@ -1,17 +1,7 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import lighthouse from 'lighthouse';
 import * as chromeLauncher from 'chrome-launcher';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Configuration
-const RUNS_PER_URL = 1;
-const MAX_RETRIES = 2;
-
-// Lighthouse options (throttling 제거 - 실제 네트워크/CPU 성능으로 측정)
+// Lighthouse 옵션 (throttling 비활성화)
 const lighthouseOptions = {
   logLevel: 'error',
   output: 'json',
@@ -35,273 +25,40 @@ const lighthouseOptions = {
   }
 };
 
-// Helper: Convert URL to safe filename
-function urlToFilename(url) {
-  return url
-    .replace(/^https?:\/\//, '')
-    .replace(/[\/\?&=:]/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/_$/, '');
-}
-
-// Helper: Calculate statistics
-function calculateStats(values) {
-  const validValues = values.filter(v => v !== null && v !== undefined);
-  if (validValues.length === 0) {
-    return { avg: null, stddev: null, min: null, max: null };
-  }
-
-  const sum = validValues.reduce((a, b) => a + b, 0);
-  const avg = sum / validValues.length;
-
-  const squaredDiffs = validValues.map(v => Math.pow(v - avg, 2));
-  const avgSquaredDiff = squaredDiffs.reduce((a, b) => a + b, 0) / validValues.length;
-  const stddev = Math.sqrt(avgSquaredDiff);
-
-  const min = Math.min(...validValues);
-  const max = Math.max(...validValues);
-
-  return { avg, stddev, min, max };
-}
-
-// Run Lighthouse for a single URL
-async function runLighthouse(url, chrome) {
-  const result = await lighthouse(url, {
-    ...lighthouseOptions,
-    port: chrome.port
-  });
-
-  return result;
-}
-
-// Measure a URL with retries
-async function measureUrl(url, runIndex, chrome) {
-  let lastError = null;
-
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      if (attempt > 0) {
-        console.log(`    Retry attempt ${attempt}/${MAX_RETRIES}...`);
-      }
-
-      const result = await runLighthouse(url, chrome);
-      const lhr = result.lhr;
-
-      const performanceScore = Math.round(lhr.categories.performance.score * 100);
-      const metrics = {
-        LCP_ms: lhr.audits['largest-contentful-paint']?.numericValue || null,
-        INP_ms: lhr.audits['interaction-to-next-paint']?.numericValue || null,
-        CLS: lhr.audits['cumulative-layout-shift']?.numericValue || null,
-        TBT_ms: lhr.audits['total-blocking-time']?.numericValue || null,
-        FCP_ms: lhr.audits['first-contentful-paint']?.numericValue || null,
-        SI_ms: lhr.audits['speed-index']?.numericValue || null
-      };
-
-      return {
-        success: true,
-        performanceScore,
-        metrics,
-        fetchedAt: lhr.fetchTime,
-        rawReport: result.report
-      };
-    } catch (error) {
-      lastError = error;
-      console.log(`    Error: ${error.message}`);
-    }
-  }
-
-  return {
-    success: false,
-    error: lastError?.message || 'Unknown error'
-  };
-}
-
-// Parse command line arguments
-function parseArgs() {
-  const args = process.argv.slice(2);
-  const result = { urls: null };
-
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--url' && args[i + 1]) {
-      // 단일 URL (하위 호환)
-      result.urls = [args[i + 1]];
-      i++;
-    } else if (args[i] === '--urls' && args[i + 1]) {
-      // 콤마로 구분된 URL들
-      const urlsArg = args[i + 1];
-      result.urls = urlsArg.split(',').map(u => u.trim()).filter(u => u.length > 0);
-      i++;
-    }
-  }
-
-  return result;
-}
-
-// Main measurement function
-async function main() {
-  console.log('Lighthouse Performance Measurement Tool');
-  console.log('======================================\n');
-
-  const cliArgs = parseArgs();
-
-  // Load URLs (커맨드라인 인자가 있으면 해당 URL들, 없으면 urls.json)
-  let urls;
-  if (cliArgs.urls && cliArgs.urls.length > 0) {
-    console.log(`Custom URL mode: measuring ${cliArgs.urls.length} URL(s)`);
-    urls = cliArgs.urls;
-  } else {
-    const urlsPath = path.join(__dirname, 'urls.json');
-    urls = JSON.parse(fs.readFileSync(urlsPath, 'utf-8'));
-  }
-
-  console.log(`URLs to measure: ${urls.length}`);
-  console.log(`Runs per URL: ${RUNS_PER_URL}`);
-  console.log(`Total runs: ${urls.length * RUNS_PER_URL}\n`);
-
-  // Ensure directories exist
-  const rawDir = path.join(__dirname, 'web', 'reports', 'raw');
-  fs.mkdirSync(rawDir, { recursive: true });
-
-  // Launch Chrome
-  console.log('Launching Chrome...');
+/**
+ * 단일 URL의 성능을 측정하고 결과를 반환
+ * @param {string} url - 측정할 URL
+ * @returns {Promise<{url: string, measuredAt: string, metrics: {LCP_ms: number, FCP_ms: number, TBT_ms: number}}>}
+ */
+export async function measureUrl(url) {
+  // Chrome 실행
   const chrome = await chromeLauncher.launch({
     chromeFlags: ['--headless', '--disable-gpu', '--no-sandbox']
   });
-  console.log(`Chrome launched on port ${chrome.port}\n`);
-
-  const startedAt = new Date().toISOString();
-  const allRuns = [];
 
   try {
-    // Measure each URL
-    for (let urlIndex = 0; urlIndex < urls.length; urlIndex++) {
-      const url = urls[urlIndex];
-      const urlFilename = urlToFilename(url);
+    // Lighthouse 측정 실행
+    const result = await lighthouse(url, {
+      ...lighthouseOptions,
+      port: chrome.port
+    });
 
-      console.log(`[${urlIndex + 1}/${urls.length}] Measuring: ${url}`);
+    const lhr = result.lhr;
 
-      for (let runIndex = 1; runIndex <= RUNS_PER_URL; runIndex++) {
-        process.stdout.write(`  Run ${runIndex}/${RUNS_PER_URL}... `);
-
-        const result = await measureUrl(url, runIndex, chrome);
-
-        if (result.success) {
-          // Save raw report
-          const rawFilename = `${urlFilename}_run${runIndex}.json`;
-          const rawPath = path.join(rawDir, rawFilename);
-          fs.writeFileSync(rawPath, result.rawReport);
-
-          allRuns.push({
-            url,
-            runIndex,
-            fetchedAt: result.fetchedAt,
-            performanceScore: result.performanceScore,
-            metrics: result.metrics,
-            rawFile: `raw/${rawFilename}`
-          });
-
-          console.log(`Score: ${result.performanceScore}`);
-        } else {
-          allRuns.push({
-            url,
-            runIndex,
-            fetchedAt: new Date().toISOString(),
-            performanceScore: null,
-            metrics: null,
-            rawFile: null,
-            error: result.error
-          });
-
-          console.log(`Failed: ${result.error}`);
-        }
-      }
-
-      console.log('');
-    }
-  } finally {
-    // Always close Chrome
-    await chrome.kill();
-    console.log('Chrome closed.\n');
-  }
-
-  // Calculate summaries
-  console.log('Calculating statistics...');
-  const summaries = urls.map(url => {
-    const urlRuns = allRuns.filter(r => r.url === url);
-    const validRuns = urlRuns.filter(r => r.performanceScore !== null);
-
-    const scores = validRuns.map(r => r.performanceScore);
-    const lcpValues = validRuns.map(r => r.metrics?.LCP_ms).filter(v => v != null);
-    const inpValues = validRuns.map(r => r.metrics?.INP_ms).filter(v => v != null);
-    const clsValues = validRuns.map(r => r.metrics?.CLS).filter(v => v != null);
-    const tbtValues = validRuns.map(r => r.metrics?.TBT_ms).filter(v => v != null);
-
-    const scoreStats = calculateStats(scores);
-    const lcpStats = calculateStats(lcpValues);
-    const inpStats = calculateStats(inpValues);
-    const clsStats = calculateStats(clsValues);
-    const tbtStats = calculateStats(tbtValues);
+    // LCP, FCP, TBT 추출 (ms 단위, 반올림)
+    const metrics = {
+      LCP_ms: Math.round(lhr.audits['largest-contentful-paint']?.numericValue || 0),
+      FCP_ms: Math.round(lhr.audits['first-contentful-paint']?.numericValue || 0),
+      TBT_ms: Math.round(lhr.audits['total-blocking-time']?.numericValue || 0)
+    };
 
     return {
       url,
-      runs: urlRuns.length,
-      successfulRuns: validRuns.length,
-      avg: {
-        performanceScore: scoreStats.avg !== null ? Math.round(scoreStats.avg * 10) / 10 : null,
-        LCP_ms: lcpStats.avg !== null ? Math.round(lcpStats.avg) : null,
-        INP_ms: inpStats.avg !== null ? Math.round(inpStats.avg) : null,
-        CLS: clsStats.avg !== null ? Math.round(clsStats.avg * 1000) / 1000 : null,
-        TBT_ms: tbtStats.avg !== null ? Math.round(tbtStats.avg) : null
-      },
-      stddev: {
-        performanceScore: scoreStats.stddev !== null ? Math.round(scoreStats.stddev * 10) / 10 : null,
-        LCP_ms: lcpStats.stddev !== null ? Math.round(lcpStats.stddev) : null,
-        INP_ms: inpStats.stddev !== null ? Math.round(inpStats.stddev) : null,
-        CLS: clsStats.stddev !== null ? Math.round(clsStats.stddev * 1000) / 1000 : null,
-        TBT_ms: tbtStats.stddev !== null ? Math.round(tbtStats.stddev) : null
-      },
-      min: {
-        performanceScore: scoreStats.min
-      },
-      max: {
-        performanceScore: scoreStats.max
-      }
+      measuredAt: new Date().toISOString(),
+      metrics
     };
-  });
-
-  // Build final data.json
-  const data = {
-    startedAt,
-    config: {
-      urls,
-      runsPerUrl: RUNS_PER_URL,
-      throttling: lighthouseOptions.throttling,
-      throttlingMethod: lighthouseOptions.throttlingMethod,
-      categories: ['performance']
-    },
-    summary: summaries,
-    runs: allRuns
-  };
-
-  // Write data.json
-  const dataPath = path.join(__dirname, 'web', 'reports', 'data.json');
-  fs.writeFileSync(dataPath, JSON.stringify(data, null, 2));
-
-  console.log('\nResults saved to web/reports/data.json');
-  console.log(`Raw reports saved to web/reports/raw/ (${allRuns.filter(r => r.rawFile).length} files)`);
-
-  // Print summary
-  console.log('\n=== Summary ===');
-  for (const summary of summaries) {
-    console.log(`\n${summary.url}`);
-    console.log(`  Successful runs: ${summary.successfulRuns}/${summary.runs}`);
-    if (summary.avg.performanceScore !== null) {
-      console.log(`  Performance: ${summary.avg.performanceScore} (±${summary.stddev.performanceScore})`);
-      console.log(`  LCP: ${summary.avg.LCP_ms}ms, TBT: ${summary.avg.TBT_ms}ms, CLS: ${summary.avg.CLS}`);
-    }
+  } finally {
+    // Chrome 종료
+    await chrome.kill();
   }
-
-  console.log('\nDone! Run "npm run serve" to view the dashboard.');
 }
-
-main().catch(console.error);

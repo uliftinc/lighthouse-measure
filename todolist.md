@@ -13,12 +13,12 @@
   - [x] Response: { url, measuredAt, metrics } 반환
 
 ## 3. 측정 로직 구현 (measure.js)
-- [ ] chrome-launcher로 headless Chrome 실행
-- [ ] Lighthouse 측정 실행
-  - [ ] 카테고리: Performance만
-  - [ ] Throttling 비활성화
-- [ ] 결과에서 LCP, FCP, TBT 추출 (ms 단위)
-- [ ] Chrome 종료 후 결과 반환
+- [x] chrome-launcher로 headless Chrome 실행
+- [x] Lighthouse 측정 실행
+  - [x] 카테고리: Performance만
+  - [x] Throttling 비활성화
+- [x] 결과에서 LCP, FCP, TBT 추출 (ms 단위)
+- [x] Chrome 종료 후 결과 반환
 
 ## 4. 프론트엔드 UI (web/index.html)
 - [ ] URL 입력 필드 + 추가 버튼
