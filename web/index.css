@@ -114,7 +114,34 @@ section h2 {
 
 .url-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+}
+
+.preset-select {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.preset-select label {
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.preset-select select {
+  padding: 10px 15px;
+  font-size: 0.95rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.preset-select select:focus {
+  outline: none;
+  border-color: #667eea;
 }
 
 .measure-btn {

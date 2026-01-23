@@ -8,6 +8,7 @@ const STORAGE_KEYS = {
 const urlInput = document.getElementById('urlInput');
 const addUrlBtn = document.getElementById('addUrlBtn');
 const urlList = document.getElementById('urlList');
+const presetSelect = document.getElementById('presetSelect');
 const measureAllBtn = document.getElementById('measureAllBtn');
 const statusSection = document.getElementById('statusSection');
 const statusMessage = document.getElementById('statusMessage');
@@ -16,15 +17,33 @@ const resultsBody = document.getElementById('resultsBody');
 // 초기화
 document.addEventListener('DOMContentLoaded', init);
 
-function init() {
+async function init() {
   addUrlBtn.addEventListener('click', addUrl);
   urlInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') addUrl();
   });
   measureAllBtn.addEventListener('click', measureAll);
 
+  await loadPresets();
   renderUrlList();
   renderResults();
+}
+
+async function loadPresets() {
+  try {
+    const response = await fetch('/api/presets');
+    const presets = await response.json();
+
+    presetSelect.innerHTML = '';
+    presets.forEach(preset => {
+      const option = document.createElement('option');
+      option.value = preset.key;
+      option.textContent = preset.name;
+      presetSelect.appendChild(option);
+    });
+  } catch (error) {
+    console.error('Failed to load presets:', error);
+  }
 }
 
 // ============================================
@@ -130,11 +149,11 @@ function renderUrlList() {
 // 측정 기능
 // ============================================
 
-async function measureUrl(url) {
+async function measureUrlApi(url, preset) {
   const response = await fetch('/api/measure', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url })
+    body: JSON.stringify({ url, preset })
   });
 
   if (!response.ok) {
@@ -148,6 +167,8 @@ async function measureAll() {
   const urls = getUrls();
   if (urls.length === 0) return;
 
+  const preset = presetSelect.value;
+
   measureAllBtn.disabled = true;
   measureAllBtn.classList.add('running');
   measureAllBtn.textContent = '측정 중...';
@@ -157,7 +178,7 @@ async function measureAll() {
     showStatus(`측정 중... (${i + 1}/${urls.length}) ${url}`, 'running');
 
     try {
-      const result = await measureUrl(url);
+      const result = await measureUrlApi(url, preset);
       saveMeasurement(result);
       renderResults();
     } catch (error) {
