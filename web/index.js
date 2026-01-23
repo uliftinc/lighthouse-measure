@@ -218,7 +218,6 @@ async function measureAll() {
     try {
       const result = await measureUrlApi(url, network, cpu);
       currentMeasurements.push(result);
-      saveMeasurement(result);
       renderResults();
     } catch (error) {
       showStatus(`오류: ${url} - ${error.message}`, 'error');
@@ -234,53 +233,40 @@ async function measureAll() {
   updateRecordButtons();
 }
 
-function saveMeasurement(result) {
-  const measurements = getMeasurements();
-  measurements.push(result);
-  saveMeasurements(measurements);
-}
-
 // ============================================
-// 결과 계산 및 표시
+// 결과 표시
 // ============================================
-
-function calculateAverage(url) {
-  const measurements = getMeasurements();
-  const urlMeasurements = measurements.filter(m => m.url === url);
-
-  if (urlMeasurements.length === 0) {
-    return { count: 0, score: '-', LCP_ms: '-', FCP_ms: '-', TBT_ms: '-' };
-  }
-
-  const count = urlMeasurements.length;
-  const avgScore = Math.round(urlMeasurements.reduce((sum, m) => sum + (m.metrics.score || 0), 0) / count);
-  const avgLCP = Math.round(urlMeasurements.reduce((sum, m) => sum + m.metrics.LCP_ms, 0) / count);
-  const avgFCP = Math.round(urlMeasurements.reduce((sum, m) => sum + m.metrics.FCP_ms, 0) / count);
-  const avgTBT = Math.round(urlMeasurements.reduce((sum, m) => sum + m.metrics.TBT_ms, 0) / count);
-
-  return { count, score: avgScore, LCP_ms: avgLCP, FCP_ms: avgFCP, TBT_ms: avgTBT };
-}
 
 function renderResults() {
   const urls = getUrls();
   resultsBody.innerHTML = '';
 
   if (urls.length === 0) {
-    resultsBody.innerHTML = '<tr><td colspan="6" class="no-data">URL을 추가하고 측정을 시작하세요.</td></tr>';
+    resultsBody.innerHTML = '<tr><td colspan="5" class="no-data">URL을 추가하고 측정을 시작하세요.</td></tr>';
     return;
   }
 
   urls.forEach(url => {
-    const avg = calculateAverage(url);
+    const measurement = currentMeasurements.find(m => m.url === url);
     const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td title="${url}">${url}</td>
-      <td>${avg.score}</td>
-      <td>${avg.LCP_ms}</td>
-      <td>${avg.FCP_ms}</td>
-      <td>${avg.TBT_ms}</td>
-      <td>${avg.count}회</td>
-    `;
+
+    if (measurement) {
+      tr.innerHTML = `
+        <td title="${url}">${url}</td>
+        <td>${measurement.metrics.score}</td>
+        <td>${measurement.metrics.LCP_ms}</td>
+        <td>${measurement.metrics.FCP_ms}</td>
+        <td>${measurement.metrics.TBT_ms}</td>
+      `;
+    } else {
+      tr.innerHTML = `
+        <td title="${url}">${url}</td>
+        <td>-</td>
+        <td>-</td>
+        <td>-</td>
+        <td>-</td>
+      `;
+    }
     resultsBody.appendChild(tr);
   });
 }
