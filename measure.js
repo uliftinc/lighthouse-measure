@@ -45,8 +45,12 @@ export async function measureUrl(url) {
 
     const lhr = result.lhr;
 
+    // Performance Score 추출 (0-100)
+    const score = Math.round((lhr.categories.performance?.score || 0) * 100);
+
     // LCP, FCP, TBT 추출 (ms 단위, 반올림)
     const metrics = {
+      score,
       LCP_ms: Math.round(lhr.audits['largest-contentful-paint']?.numericValue || 0),
       FCP_ms: Math.round(lhr.audits['first-contentful-paint']?.numericValue || 0),
       TBT_ms: Math.round(lhr.audits['total-blocking-time']?.numericValue || 0)

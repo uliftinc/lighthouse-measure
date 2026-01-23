@@ -186,15 +186,16 @@ function calculateAverage(url) {
   const urlMeasurements = measurements.filter(m => m.url === url);
 
   if (urlMeasurements.length === 0) {
-    return { count: 0, LCP_ms: '-', FCP_ms: '-', TBT_ms: '-' };
+    return { count: 0, score: '-', LCP_ms: '-', FCP_ms: '-', TBT_ms: '-' };
   }
 
   const count = urlMeasurements.length;
+  const avgScore = Math.round(urlMeasurements.reduce((sum, m) => sum + (m.metrics.score || 0), 0) / count);
   const avgLCP = Math.round(urlMeasurements.reduce((sum, m) => sum + m.metrics.LCP_ms, 0) / count);
   const avgFCP = Math.round(urlMeasurements.reduce((sum, m) => sum + m.metrics.FCP_ms, 0) / count);
   const avgTBT = Math.round(urlMeasurements.reduce((sum, m) => sum + m.metrics.TBT_ms, 0) / count);
 
-  return { count, LCP_ms: avgLCP, FCP_ms: avgFCP, TBT_ms: avgTBT };
+  return { count, score: avgScore, LCP_ms: avgLCP, FCP_ms: avgFCP, TBT_ms: avgTBT };
 }
 
 function renderResults() {
@@ -202,7 +203,7 @@ function renderResults() {
   resultsBody.innerHTML = '';
 
   if (urls.length === 0) {
-    resultsBody.innerHTML = '<tr><td colspan="5" class="no-data">URL을 추가하고 측정을 시작하세요.</td></tr>';
+    resultsBody.innerHTML = '<tr><td colspan="6" class="no-data">URL을 추가하고 측정을 시작하세요.</td></tr>';
     return;
   }
 
@@ -211,6 +212,7 @@ function renderResults() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td title="${url}">${url}</td>
+      <td>${avg.score}</td>
       <td>${avg.LCP_ms}</td>
       <td>${avg.FCP_ms}</td>
       <td>${avg.TBT_ms}</td>

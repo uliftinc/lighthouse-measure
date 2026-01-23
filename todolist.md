@@ -59,3 +59,50 @@
 - [x] 측정 API 동작 확인
 - [x] localStorage 저장/로드 확인
 - [x] 평균값 계산 정확성 확인
+
+## 8. 성능 환경 설정 기능
+- [ ] Lighthouse 내장 프리셋 활용
+  - [ ] mobileSlow4G (RTT 150ms, 1.6Mbps, CPU 4x)
+  - [ ] mobileRegular3G (RTT 300ms, 700Kbps, CPU 4x)
+  - [ ] desktopDense4G (RTT 40ms, 10Mbps, CPU 1x)
+  - [ ] No throttling (현재 기본값)
+- [ ] throttlingMethod 선택 (simulate/devtools/provided)
+- [ ] UI에 프리셋 선택 드롭다운 추가
+- [ ] 측정 API에 throttling 옵션 전달
+
+## 9. 측정 기록 저장 및 평균 계산 기능
+
+### 측정 항목 추가
+- [x] Lighthouse Performance Score 추가 (0-100)
+
+### 기록 저장 기능
+- [ ] 1회 측정 = 모든 URL 측정 결과 세트
+- [ ] 측정 완료 시 자동 저장 (임시 저장소)
+- [ ] "n번째 기록 저장" 버튼
+  - [ ] 클릭 시 현재 측정 결과를 n번째 기록으로 확정 저장
+  - [ ] n은 저장된 기록 수 + 1 (1번째, 2번째, 3번째...)
+- [ ] 저장된 기록 목록 표시 (1회, 2회, 3회...)
+
+### 평균 계산 기능
+- [ ] "n회 평균값 계산" 버튼
+  - [ ] 저장된 모든 회차의 평균 계산
+  - [ ] n = 저장된 기록 수
+- [ ] 평균 결과 표시
+  - [ ] 평균 Lighthouse Score
+  - [ ] 평균 LCP (ms)
+  - [ ] 평균 FCP (ms)
+  - [ ] 평균 TBT (ms)
+
+### localStorage 스키마 변경
+- [ ] `lighthouse-saved-records` 키 추가
+  ```javascript
+  [
+    {
+      recordNumber: 1,
+      savedAt: "2024-01-01T12:00:00Z",
+      measurements: [
+        { url, score, LCP_ms, FCP_ms, TBT_ms }
+      ]
+    }
+  ]
+  ```
