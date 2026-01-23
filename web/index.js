@@ -1,598 +1,221 @@
-// Global data
-let data = null;
-let currentSort = 'default';
-let customUrlList = []; // URL 배열
+// localStorage 키
+const STORAGE_KEYS = {
+  URLS: 'lighthouse-urls',
+  MEASUREMENTS: 'lighthouse-measurements'
+};
 
-// DOM Elements
-const loadingEl = document.getElementById('loading');
-const errorEl = document.getElementById('error');
-const mainEl = document.getElementById('main');
-const urlSelect = document.getElementById('urlSelect');
-const kpiSection = document.getElementById('kpiSection');
-const chartSection = document.getElementById('chartSection');
-const tableSection = document.getElementById('tableSection');
-const overviewSection = document.getElementById('overviewSection');
-
-// Measure control elements
-const measureBtn = document.getElementById('measureBtn');
-const customMeasureBtn = document.getElementById('customMeasureBtn');
-const customUrlInput = document.getElementById('customUrlInput');
+// DOM 요소
+const urlInput = document.getElementById('urlInput');
 const addUrlBtn = document.getElementById('addUrlBtn');
-const urlListEl = document.getElementById('urlList');
-const urlCountEl = document.getElementById('urlCount');
-const clearUrlsBtn = document.getElementById('clearUrlsBtn');
-const measureStatus = document.getElementById('measureStatus');
-const statusOutput = document.getElementById('statusOutput');
+const urlList = document.getElementById('urlList');
+const measureAllBtn = document.getElementById('measureAllBtn');
+const statusSection = document.getElementById('statusSection');
+const statusMessage = document.getElementById('statusMessage');
+const resultsBody = document.getElementById('resultsBody');
 
-let statusPollInterval = null;
-
-// Initialize
+// 초기화
 document.addEventListener('DOMContentLoaded', init);
 
-async function init() {
-  // Setup measure buttons
-  if (measureBtn) {
-    measureBtn.addEventListener('click', () => startMeasurement());
-  }
-  if (customMeasureBtn) {
-    customMeasureBtn.addEventListener('click', () => startCustomMeasurement());
-  }
-  if (addUrlBtn) {
-    addUrlBtn.addEventListener('click', () => addUrlToList());
-  }
-  if (clearUrlsBtn) {
-    clearUrlsBtn.addEventListener('click', () => clearUrlList());
-  }
-  if (customUrlInput) {
-    customUrlInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        addUrlToList();
-      }
-    });
-  }
+function init() {
+  addUrlBtn.addEventListener('click', addUrl);
+  urlInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') addUrl();
+  });
+  measureAllBtn.addEventListener('click', measureAll);
 
-  try {
-    const response = await fetch('./reports/data.json');
-    if (!response.ok) {
-      throw new Error(`Failed to load data: ${response.status} ${response.statusText}`);
-    }
-    data = await response.json();
-    renderDashboard();
-  } catch (error) {
-    showError(error.message);
-  }
+  renderUrlList();
+  renderResults();
 }
 
-// Measurement functions
-async function startMeasurement(customUrls = null) {
-  try {
-    disableMeasureButtons(true);
+// ============================================
+// localStorage 관리
+// ============================================
 
-    measureStatus.style.display = 'block';
-    updateStatusUI('running', '측정 시작 중...', []);
-
-    const options = {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
-    };
-
-    if (customUrls) {
-      // 배열로 전달 (단일 URL도 배열로 처리)
-      const urls = Array.isArray(customUrls) ? customUrls : [customUrls];
-      options.body = JSON.stringify({ urls });
-    }
-
-    const response = await fetch('/api/measure', options);
-    const result = await response.json();
-
-    if (!result.success) {
-      updateStatusUI('error', result.message, []);
-      disableMeasureButtons(false);
-      return;
-    }
-
-    // Start polling for status
-    statusPollInterval = setInterval(pollMeasureStatus, 1000);
-
-  } catch (error) {
-    updateStatusUI('error', `오류: ${error.message}`, []);
-    disableMeasureButtons(false);
-  }
+function getUrls() {
+  const data = localStorage.getItem(STORAGE_KEYS.URLS);
+  return data ? JSON.parse(data) : [];
 }
 
-// URL 리스트 관리 함수
-function addUrlToList() {
-  const url = customUrlInput.value.trim();
+function saveUrls(urls) {
+  localStorage.setItem(STORAGE_KEYS.URLS, JSON.stringify(urls));
+}
 
-  if (!url) {
-    return;
-  }
+function getMeasurements() {
+  const data = localStorage.getItem(STORAGE_KEYS.MEASUREMENTS);
+  return data ? JSON.parse(data) : [];
+}
+
+function saveMeasurements(measurements) {
+  localStorage.setItem(STORAGE_KEYS.MEASUREMENTS, JSON.stringify(measurements));
+}
+
+// ============================================
+// URL 관리 기능
+// ============================================
+
+function addUrl() {
+  const url = urlInput.value.trim();
+  if (!url) return;
 
   // URL 유효성 검사
   try {
     new URL(url);
   } catch {
-    updateStatusUI('error', '올바른 URL 형식이 아닙니다.', []);
-    measureStatus.style.display = 'block';
+    showStatus('올바른 URL 형식이 아닙니다.', 'error');
     return;
   }
+
+  const urls = getUrls();
 
   // 중복 체크
-  if (customUrlList.includes(url)) {
-    updateStatusUI('error', '이미 추가된 URL입니다.', []);
-    measureStatus.style.display = 'block';
+  if (urls.includes(url)) {
+    showStatus('이미 추가된 URL입니다.', 'error');
     return;
   }
 
-  customUrlList.push(url);
-  customUrlInput.value = '';
+  urls.push(url);
+  saveUrls(urls);
+  urlInput.value = '';
+
   renderUrlList();
+  hideStatus();
 }
 
-function removeUrlFromList(index) {
-  customUrlList.splice(index, 1);
-  renderUrlList();
-}
+function removeUrl(url) {
+  let urls = getUrls();
+  urls = urls.filter(u => u !== url);
+  saveUrls(urls);
 
-function clearUrlList() {
-  customUrlList = [];
+  // 해당 URL의 측정 결과도 삭제
+  let measurements = getMeasurements();
+  measurements = measurements.filter(m => m.url !== url);
+  saveMeasurements(measurements);
+
   renderUrlList();
+  renderResults();
 }
 
 function renderUrlList() {
-  urlListEl.innerHTML = '';
+  const urls = getUrls();
+  urlList.innerHTML = '';
 
-  customUrlList.forEach((url, index) => {
-    const tag = document.createElement('div');
-    tag.className = 'url-tag';
-    tag.innerHTML = `
-      <span class="url-tag-text" title="${url}">${url}</span>
-      <button class="url-tag-remove" data-index="${index}">&times;</button>
+  urls.forEach(url => {
+    const li = document.createElement('li');
+    li.innerHTML = `
+      <span title="${url}">${url}</span>
+      <button onclick="removeUrl('${url}')">삭제</button>
     `;
-    urlListEl.appendChild(tag);
+    urlList.appendChild(li);
   });
 
-  // 삭제 버튼 이벤트
-  urlListEl.querySelectorAll('.url-tag-remove').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const index = parseInt(e.target.dataset.index);
-      removeUrlFromList(index);
-    });
-  });
-
-  // UI 업데이트
-  const count = customUrlList.length;
-  if (count > 0) {
-    urlCountEl.textContent = `${count}개 URL`;
-    clearUrlsBtn.style.display = 'inline-block';
-    customMeasureBtn.style.display = 'inline-flex';
-  } else {
-    urlCountEl.textContent = '';
-    clearUrlsBtn.style.display = 'none';
-    customMeasureBtn.style.display = 'none';
-  }
+  // 전체 측정 버튼 활성화/비활성화
+  measureAllBtn.disabled = urls.length === 0;
 }
 
-async function startCustomMeasurement() {
-  if (customUrlList.length === 0) {
-    updateStatusUI('error', 'URL을 추가해주세요.', []);
-    measureStatus.style.display = 'block';
+// ============================================
+// 측정 기능
+// ============================================
+
+async function measureUrl(url) {
+  const response = await fetch('/api/measure', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url })
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+async function measureAll() {
+  const urls = getUrls();
+  if (urls.length === 0) return;
+
+  measureAllBtn.disabled = true;
+  measureAllBtn.classList.add('running');
+  measureAllBtn.textContent = '측정 중...';
+
+  for (let i = 0; i < urls.length; i++) {
+    const url = urls[i];
+    showStatus(`측정 중... (${i + 1}/${urls.length}) ${url}`, 'running');
+
+    try {
+      const result = await measureUrl(url);
+      saveMeasurement(result);
+      renderResults();
+    } catch (error) {
+      showStatus(`오류: ${url} - ${error.message}`, 'error');
+    }
+  }
+
+  measureAllBtn.disabled = false;
+  measureAllBtn.classList.remove('running');
+  measureAllBtn.textContent = '전체 측정';
+  showStatus(`측정 완료! (${urls.length}개 URL)`, '');
+}
+
+function saveMeasurement(result) {
+  const measurements = getMeasurements();
+  measurements.push(result);
+  saveMeasurements(measurements);
+}
+
+// ============================================
+// 결과 계산 및 표시
+// ============================================
+
+function calculateAverage(url) {
+  const measurements = getMeasurements();
+  const urlMeasurements = measurements.filter(m => m.url === url);
+
+  if (urlMeasurements.length === 0) {
+    return { count: 0, LCP_ms: '-', FCP_ms: '-', TBT_ms: '-' };
+  }
+
+  const count = urlMeasurements.length;
+  const avgLCP = Math.round(urlMeasurements.reduce((sum, m) => sum + m.metrics.LCP_ms, 0) / count);
+  const avgFCP = Math.round(urlMeasurements.reduce((sum, m) => sum + m.metrics.FCP_ms, 0) / count);
+  const avgTBT = Math.round(urlMeasurements.reduce((sum, m) => sum + m.metrics.TBT_ms, 0) / count);
+
+  return { count, LCP_ms: avgLCP, FCP_ms: avgFCP, TBT_ms: avgTBT };
+}
+
+function renderResults() {
+  const urls = getUrls();
+  resultsBody.innerHTML = '';
+
+  if (urls.length === 0) {
+    resultsBody.innerHTML = '<tr><td colspan="5" class="no-data">URL을 추가하고 측정을 시작하세요.</td></tr>';
     return;
   }
 
-  await startMeasurement(customUrlList);
-}
-
-function disableMeasureButtons(disabled) {
-  if (measureBtn) {
-    measureBtn.disabled = disabled;
-    if (disabled) {
-      measureBtn.classList.add('running');
-      measureBtn.querySelector('.btn-icon').textContent = '◉';
-      measureBtn.querySelector('.btn-text').textContent = '측정 중...';
-    } else {
-      measureBtn.classList.remove('running');
-      measureBtn.querySelector('.btn-icon').textContent = '▶';
-      measureBtn.querySelector('.btn-text').textContent = '전체 측정';
-    }
-  }
-  if (customMeasureBtn) {
-    customMeasureBtn.disabled = disabled;
-    if (disabled) {
-      customMeasureBtn.classList.add('running');
-      customMeasureBtn.querySelector('.btn-icon').textContent = '◉';
-      customMeasureBtn.querySelector('.btn-text').textContent = '측정 중...';
-    } else {
-      customMeasureBtn.classList.remove('running');
-      customMeasureBtn.querySelector('.btn-icon').textContent = '▶';
-      customMeasureBtn.querySelector('.btn-text').textContent = 'URL 측정';
-    }
-  }
-  if (customUrlInput) {
-    customUrlInput.disabled = disabled;
-  }
-}
-
-async function pollMeasureStatus() {
-  try {
-    const response = await fetch('/api/measure/status');
-    const status = await response.json();
-
-    if (status.running) {
-      updateStatusUI('running', '측정 진행 중...', status.output);
-    } else {
-      clearInterval(statusPollInterval);
-      statusPollInterval = null;
-
-      if (status.error) {
-        updateStatusUI('error', `오류: ${status.error}`, status.output);
-      } else {
-        updateStatusUI('completed', '측정 완료!', status.output);
-        // Reload data after completion
-        setTimeout(reloadData, 1000);
-      }
-
-      disableMeasureButtons(false);
-    }
-  } catch (error) {
-    clearInterval(statusPollInterval);
-    statusPollInterval = null;
-    updateStatusUI('error', `상태 확인 오류: ${error.message}`, []);
-    disableMeasureButtons(false);
-  }
-}
-
-function updateStatusUI(state, text, output) {
-  const indicator = measureStatus.querySelector('.status-indicator');
-  const statusText = measureStatus.querySelector('.status-text');
-
-  indicator.className = 'status-indicator ' + state;
-  statusText.textContent = text;
-
-  if (output && output.length > 0) {
-    statusOutput.textContent = output.slice(-20).join('\n');
-    statusOutput.scrollTop = statusOutput.scrollHeight;
-  }
-}
-
-async function reloadData() {
-  try {
-    const response = await fetch('./reports/data.json?t=' + Date.now());
-    if (response.ok) {
-      data = await response.json();
-      renderDashboard();
-      updateStatusUI('completed', '측정 완료! 데이터가 새로고침되었습니다.', []);
-    }
-  } catch (error) {
-    console.error('데이터 새로고침 실패:', error);
-  }
-}
-
-function showError(message) {
-  loadingEl.style.display = 'none';
-  errorEl.style.display = 'block';
-  errorEl.textContent = `Error: ${message}`;
-}
-
-function renderDashboard() {
-  loadingEl.style.display = 'none';
-  mainEl.style.display = 'block';
-
-  // Meta info
-  document.getElementById('measuredAt').textContent = formatDate(data.startedAt);
-  document.getElementById('runsPerUrl').textContent = data.config.runsPerUrl;
-
-  // Populate URL select
-  populateUrlSelect();
-
-  // Render overview
-  renderOverview();
-
-  // Setup sort buttons
-  setupSortButtons();
-
-  // Setup URL select change handler
-  urlSelect.addEventListener('change', onUrlChange);
-}
-
-function populateUrlSelect() {
-  const summaries = getSortedSummaries();
-
-  urlSelect.innerHTML = '<option value="">-- Select URL --</option>';
-  summaries.forEach(s => {
-    const option = document.createElement('option');
-    option.value = s.url;
-    option.textContent = s.url;
-    urlSelect.appendChild(option);
-  });
-}
-
-function getSortedSummaries() {
-  const summaries = [...data.summary];
-
-  if (currentSort === 'lowScore') {
-    summaries.sort((a, b) => (a.avg.performanceScore ?? 100) - (b.avg.performanceScore ?? 100));
-  } else if (currentSort === 'highVariance') {
-    summaries.sort((a, b) => (b.stddev.performanceScore ?? 0) - (a.stddev.performanceScore ?? 0));
-  }
-
-  return summaries;
-}
-
-function setupSortButtons() {
-  const sortDefault = document.getElementById('sortDefault');
-  const sortLowScore = document.getElementById('sortLowScore');
-  const sortHighVariance = document.getElementById('sortHighVariance');
-
-  const buttons = [sortDefault, sortLowScore, sortHighVariance];
-  const sortTypes = ['default', 'lowScore', 'highVariance'];
-
-  buttons.forEach((btn, i) => {
-    btn.addEventListener('click', () => {
-      buttons.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      currentSort = sortTypes[i];
-      populateUrlSelect();
-      renderOverview();
-    });
-  });
-}
-
-function onUrlChange() {
-  const url = urlSelect.value;
-
-  if (!url) {
-    kpiSection.style.display = 'none';
-    chartSection.style.display = 'none';
-    tableSection.style.display = 'none';
-    return;
-  }
-
-  const summary = data.summary.find(s => s.url === url);
-  const runs = data.runs.filter(r => r.url === url);
-
-  renderKPI(summary);
-  renderChart(runs);
-  renderTable(runs);
-
-  kpiSection.style.display = 'block';
-  chartSection.style.display = 'block';
-  tableSection.style.display = 'block';
-}
-
-function renderKPI(summary) {
-  const scoreEl = document.getElementById('kpiScore');
-  const scoreRangeEl = document.getElementById('kpiScoreRange');
-
-  if (summary.avg.performanceScore !== null) {
-    scoreEl.textContent = summary.avg.performanceScore;
-    scoreRangeEl.textContent = `Min: ${summary.min.performanceScore} / Max: ${summary.max.performanceScore} (±${summary.stddev.performanceScore})`;
-  } else {
-    scoreEl.textContent = '-';
-    scoreRangeEl.textContent = 'No data';
-  }
-
-  // LCP
-  document.getElementById('kpiLCP').textContent = summary.avg.LCP_ms !== null ? `${summary.avg.LCP_ms}ms` : '-';
-  document.getElementById('kpiLCPStddev').textContent = summary.stddev.LCP_ms !== null ? `±${summary.stddev.LCP_ms}ms` : '-';
-
-  // INP
-  document.getElementById('kpiINP').textContent = summary.avg.INP_ms !== null ? `${summary.avg.INP_ms}ms` : '-';
-  document.getElementById('kpiINPStddev').textContent = summary.stddev.INP_ms !== null ? `±${summary.stddev.INP_ms}ms` : '-';
-
-  // CLS
-  document.getElementById('kpiCLS').textContent = summary.avg.CLS !== null ? summary.avg.CLS : '-';
-  document.getElementById('kpiCLSStddev').textContent = summary.stddev.CLS !== null ? `±${summary.stddev.CLS}` : '-';
-
-  // TBT
-  document.getElementById('kpiTBT').textContent = summary.avg.TBT_ms !== null ? `${summary.avg.TBT_ms}ms` : '-';
-  document.getElementById('kpiTBTStddev').textContent = summary.stddev.TBT_ms !== null ? `±${summary.stddev.TBT_ms}ms` : '-';
-}
-
-function renderChart(runs) {
-  const canvas = document.getElementById('scoreChart');
-  const ctx = canvas.getContext('2d');
-
-  // Clear canvas
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  const padding = { top: 30, right: 30, bottom: 40, left: 50 };
-  const width = canvas.width - padding.left - padding.right;
-  const height = canvas.height - padding.top - padding.bottom;
-
-  // Get scores
-  const scores = runs.map(r => r.performanceScore);
-  const validScores = scores.filter(s => s !== null);
-
-  if (validScores.length === 0) {
-    ctx.fillStyle = '#666';
-    ctx.font = '14px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('No data available', canvas.width / 2, canvas.height / 2);
-    return;
-  }
-
-  // Y axis: 0-100
-  const yMin = 0;
-  const yMax = 100;
-
-  // Draw grid
-  ctx.strokeStyle = '#eee';
-  ctx.lineWidth = 1;
-
-  for (let i = 0; i <= 10; i++) {
-    const y = padding.top + height - (i * height / 10);
-    ctx.beginPath();
-    ctx.moveTo(padding.left, y);
-    ctx.lineTo(padding.left + width, y);
-    ctx.stroke();
-
-    // Y labels
-    if (i % 2 === 0) {
-      ctx.fillStyle = '#888';
-      ctx.font = '12px sans-serif';
-      ctx.textAlign = 'right';
-      ctx.fillText(i * 10, padding.left - 10, y + 4);
-    }
-  }
-
-  // Draw X axis labels
-  ctx.fillStyle = '#888';
-  ctx.font = '12px sans-serif';
-  ctx.textAlign = 'center';
-
-  for (let i = 0; i < runs.length; i++) {
-    const x = padding.left + (i + 0.5) * (width / runs.length);
-    ctx.fillText(`Run ${i + 1}`, x, canvas.height - 10);
-  }
-
-  // Draw score line
-  ctx.strokeStyle = '#667eea';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-
-  let firstPoint = true;
-  scores.forEach((score, i) => {
-    if (score === null) return;
-
-    const x = padding.left + (i + 0.5) * (width / runs.length);
-    const y = padding.top + height - ((score - yMin) / (yMax - yMin)) * height;
-
-    if (firstPoint) {
-      ctx.moveTo(x, y);
-      firstPoint = false;
-    } else {
-      ctx.lineTo(x, y);
-    }
-  });
-  ctx.stroke();
-
-  // Draw points
-  scores.forEach((score, i) => {
-    if (score === null) return;
-
-    const x = padding.left + (i + 0.5) * (width / runs.length);
-    const y = padding.top + height - ((score - yMin) / (yMax - yMin)) * height;
-
-    // Point color based on score
-    let color = '#ff4e42'; // poor
-    if (score >= 90) color = '#0cce6b'; // good
-    else if (score >= 50) color = '#ffa400'; // moderate
-
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(x, y, 6, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Score label
-    ctx.fillStyle = '#333';
-    ctx.font = 'bold 11px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(score, x, y - 12);
-  });
-
-  // Draw average line
-  const avg = validScores.reduce((a, b) => a + b, 0) / validScores.length;
-  const avgY = padding.top + height - ((avg - yMin) / (yMax - yMin)) * height;
-
-  ctx.strokeStyle = '#764ba2';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([5, 5]);
-  ctx.beginPath();
-  ctx.moveTo(padding.left, avgY);
-  ctx.lineTo(padding.left + width, avgY);
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  // Average label
-  ctx.fillStyle = '#764ba2';
-  ctx.font = '11px sans-serif';
-  ctx.textAlign = 'left';
-  ctx.fillText(`Avg: ${avg.toFixed(1)}`, padding.left + width + 5, avgY + 4);
-}
-
-function renderTable(runs) {
-  const tbody = document.getElementById('resultsBody');
-  tbody.innerHTML = '';
-
-  runs.forEach(run => {
+  urls.forEach(url => {
+    const avg = calculateAverage(url);
     const tr = document.createElement('tr');
-
-    if (run.performanceScore === null) {
-      tr.innerHTML = `
-        <td>${run.runIndex}</td>
-        <td colspan="5" class="failed">Failed: ${run.error || 'Unknown error'}</td>
-        <td>-</td>
-      `;
-    } else {
-      const scoreClass = getScoreClass(run.performanceScore);
-      tr.innerHTML = `
-        <td>${run.runIndex}</td>
-        <td class="${scoreClass}">${run.performanceScore}</td>
-        <td>${formatMetric(run.metrics.LCP_ms)}</td>
-        <td>${formatMetric(run.metrics.INP_ms)}</td>
-        <td>${run.metrics.CLS !== null ? run.metrics.CLS.toFixed(3) : '-'}</td>
-        <td>${formatMetric(run.metrics.TBT_ms)}</td>
-        <td>${run.rawFile ? `<a href="reports/${run.rawFile}" target="_blank">View</a>` : '-'}</td>
-      `;
-    }
-
-    tbody.appendChild(tr);
-  });
-}
-
-function renderOverview() {
-  const tbody = document.getElementById('overviewBody');
-  tbody.innerHTML = '';
-
-  const summaries = getSortedSummaries();
-
-  summaries.forEach(s => {
-    const tr = document.createElement('tr');
-    const scoreClass = getScoreClass(s.avg.performanceScore);
-
     tr.innerHTML = `
-      <td title="${s.url}">${s.url}</td>
-      <td class="${scoreClass}">${s.avg.performanceScore ?? '-'}</td>
-      <td>${s.min.performanceScore ?? '-'} - ${s.max.performanceScore ?? '-'}</td>
-      <td>${s.avg.LCP_ms !== null ? `${s.avg.LCP_ms}ms` : '-'}</td>
-      <td>${s.avg.TBT_ms !== null ? `${s.avg.TBT_ms}ms` : '-'}</td>
-      <td>${s.successfulRuns}/${s.runs}</td>
+      <td title="${url}">${url}</td>
+      <td>${avg.LCP_ms}</td>
+      <td>${avg.FCP_ms}</td>
+      <td>${avg.TBT_ms}</td>
+      <td>${avg.count}회</td>
     `;
-
-    // Click to select
-    tr.style.cursor = 'pointer';
-    tr.addEventListener('click', () => {
-      urlSelect.value = s.url;
-      onUrlChange();
-      urlSelect.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
-
-    tbody.appendChild(tr);
+    resultsBody.appendChild(tr);
   });
 }
 
-// Helpers
-function formatDate(isoString) {
-  const date = new Date(isoString);
-  return date.toLocaleString('ko-KR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
+// ============================================
+// 상태 표시
+// ============================================
+
+function showStatus(message, type) {
+  statusSection.style.display = 'block';
+  statusMessage.textContent = message;
+  statusMessage.className = 'status-message ' + type;
 }
 
-function formatMetric(value) {
-  if (value === null || value === undefined) return '-';
-  return Math.round(value);
-}
-
-function getScoreClass(score) {
-  if (score === null) return '';
-  if (score >= 90) return 'score-good';
-  if (score >= 50) return 'score-moderate';
-  return 'score-poor';
+function hideStatus() {
+  statusSection.style.display = 'none';
 }
