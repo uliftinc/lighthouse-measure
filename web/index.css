@@ -232,7 +232,7 @@ section h2 {
   gap: 10px;
 }
 
-.save-btn, .calc-btn {
+.save-btn, .calc-btn, .reset-btn {
   padding: 10px 20px;
   font-size: 0.95rem;
   font-weight: 600;
@@ -259,7 +259,16 @@ section h2 {
   background: #138496;
 }
 
-.save-btn:disabled, .calc-btn:disabled {
+.reset-btn {
+  color: #fff;
+  background: #6c757d;
+}
+
+.reset-btn:hover:not(:disabled) {
+  background: #5a6268;
+}
+
+.save-btn:disabled, .calc-btn:disabled, .reset-btn:disabled {
   background: #ccc;
   cursor: not-allowed;
 }

@@ -19,6 +19,7 @@ const statusMessage = document.getElementById('statusMessage');
 const resultsBody = document.getElementById('resultsBody');
 const saveRecordBtn = document.getElementById('saveRecordBtn');
 const calculateAvgBtn = document.getElementById('calculateAvgBtn');
+const resetRecordsBtn = document.getElementById('resetRecordsBtn');
 const savedRecordsList = document.getElementById('savedRecordsList');
 const avgResultsSection = document.getElementById('avgResultsSection');
 
@@ -33,6 +34,7 @@ async function init() {
   measureAllBtn.addEventListener('click', measureAll);
   saveRecordBtn.addEventListener('click', saveRecord);
   calculateAvgBtn.addEventListener('click', calculateAndShowAverage);
+  resetRecordsBtn.addEventListener('click', resetRecords);
 
   await loadPresets();
   renderUrlList();
@@ -300,6 +302,9 @@ function updateRecordButtons() {
   // 평균 계산 버튼: 저장된 기록이 있을 때만 활성화
   calculateAvgBtn.disabled = savedRecords.length === 0;
   calculateAvgBtn.textContent = `${savedRecords.length}회 평균값 계산`;
+
+  // 초기화 버튼: 저장된 기록이 있을 때만 활성화
+  resetRecordsBtn.disabled = savedRecords.length === 0;
 }
 
 function saveRecord() {
@@ -365,6 +370,16 @@ function deleteRecord(recordNumber) {
   renderSavedRecords();
   updateRecordButtons();
   hideAvgResults();
+}
+
+function resetRecords() {
+  if (!confirm('모든 저장된 기록을 삭제하시겠습니까?')) return;
+
+  saveSavedRecords([]);
+  renderSavedRecords();
+  updateRecordButtons();
+  hideAvgResults();
+  showStatus('모든 기록이 초기화되었습니다.', '');
 }
 
 function calculateAndShowAverage() {
