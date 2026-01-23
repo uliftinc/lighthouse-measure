@@ -53,9 +53,23 @@ function saveMeasurements(measurements) {
 // URL 관리 기능
 // ============================================
 
+function normalizeUrl(input) {
+  let url = input.trim();
+
+  // 프로토콜이 없으면 https:// 추가
+  if (!url.match(/^https?:\/\//)) {
+    url = 'https://' + url;
+  }
+
+  return url;
+}
+
 function addUrl() {
-  const url = urlInput.value.trim();
+  let url = urlInput.value.trim();
   if (!url) return;
+
+  // URL 정규화 (https:// 자동 추가)
+  url = normalizeUrl(url);
 
   // URL 유효성 검사
   try {
