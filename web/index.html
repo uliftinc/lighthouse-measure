@@ -58,6 +58,26 @@
           <tbody id="resultsBody">
           </tbody>
         </table>
+
+        <!-- 기록 저장 버튼 -->
+        <div class="record-actions">
+          <button id="saveRecordBtn" class="save-btn" disabled>1번째 기록 저장</button>
+        </div>
+      </section>
+
+      <!-- 저장된 기록 -->
+      <section class="saved-records-section">
+        <h2>저장된 기록</h2>
+        <ul id="savedRecordsList">
+          <li class="no-records">저장된 기록이 없습니다.</li>
+        </ul>
+        <div class="record-actions">
+          <button id="calculateAvgBtn" class="calc-btn" disabled>0회 평균값 계산</button>
+        </div>
+      </section>
+
+      <!-- 평균 결과 -->
+      <section id="avgResultsSection" class="avg-results-section" style="display: none;">
       </section>
     </main>
   </div>

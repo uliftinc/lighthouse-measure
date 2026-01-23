@@ -1,8 +1,12 @@
 // localStorage 키
 const STORAGE_KEYS = {
   URLS: 'lighthouse-urls',
-  MEASUREMENTS: 'lighthouse-measurements'
+  MEASUREMENTS: 'lighthouse-measurements',
+  SAVED_RECORDS: 'lighthouse-saved-records'
 };
+
+// 현재 측정 결과 (임시 저장)
+let currentMeasurements = [];
 
 // DOM 요소
 const urlInput = document.getElementById('urlInput');
@@ -13,6 +17,10 @@ const measureAllBtn = document.getElementById('measureAllBtn');
 const statusSection = document.getElementById('statusSection');
 const statusMessage = document.getElementById('statusMessage');
 const resultsBody = document.getElementById('resultsBody');
+const saveRecordBtn = document.getElementById('saveRecordBtn');
+const calculateAvgBtn = document.getElementById('calculateAvgBtn');
+const savedRecordsList = document.getElementById('savedRecordsList');
+const avgResultsSection = document.getElementById('avgResultsSection');
 
 // 초기화
 document.addEventListener('DOMContentLoaded', init);
@@ -23,10 +31,14 @@ async function init() {
     if (e.key === 'Enter') addUrl();
   });
   measureAllBtn.addEventListener('click', measureAll);
+  saveRecordBtn.addEventListener('click', saveRecord);
+  calculateAvgBtn.addEventListener('click', calculateAndShowAverage);
 
   await loadPresets();
   renderUrlList();
   renderResults();
+  renderSavedRecords();
+  updateRecordButtons();
 }
 
 async function loadPresets() {
@@ -66,6 +78,15 @@ function getMeasurements() {
 
 function saveMeasurements(measurements) {
   localStorage.setItem(STORAGE_KEYS.MEASUREMENTS, JSON.stringify(measurements));
+}
+
+function getSavedRecords() {
+  const data = localStorage.getItem(STORAGE_KEYS.SAVED_RECORDS);
+  return data ? JSON.parse(data) : [];
+}
+
+function saveSavedRecords(records) {
+  localStorage.setItem(STORAGE_KEYS.SAVED_RECORDS, JSON.stringify(records));
 }
 
 // ============================================
@@ -173,12 +194,16 @@ async function measureAll() {
   measureAllBtn.classList.add('running');
   measureAllBtn.textContent = '측정 중...';
 
+  // 현재 측정 결과 초기화
+  currentMeasurements = [];
+
   for (let i = 0; i < urls.length; i++) {
     const url = urls[i];
     showStatus(`측정 중... (${i + 1}/${urls.length}) ${url}`, 'running');
 
     try {
       const result = await measureUrlApi(url, preset);
+      currentMeasurements.push(result);
       saveMeasurement(result);
       renderResults();
     } catch (error) {
@@ -190,6 +215,9 @@ async function measureAll() {
   measureAllBtn.classList.remove('running');
   measureAllBtn.textContent = '전체 측정';
   showStatus(`측정 완료! (${urls.length}개 URL)`, '');
+
+  // 기록 저장 버튼 활성화
+  updateRecordButtons();
 }
 
 function saveMeasurement(result) {
@@ -255,4 +283,157 @@ function showStatus(message, type) {
 
 function hideStatus() {
   statusSection.style.display = 'none';
+}
+
+// ============================================
+// 기록 저장 및 평균 계산
+// ============================================
+
+function updateRecordButtons() {
+  const savedRecords = getSavedRecords();
+  const nextRecordNum = savedRecords.length + 1;
+
+  // 저장 버튼: 현재 측정 결과가 있을 때만 활성화
+  saveRecordBtn.disabled = currentMeasurements.length === 0;
+  saveRecordBtn.textContent = `${nextRecordNum}번째 기록 저장`;
+
+  // 평균 계산 버튼: 저장된 기록이 있을 때만 활성화
+  calculateAvgBtn.disabled = savedRecords.length === 0;
+  calculateAvgBtn.textContent = `${savedRecords.length}회 평균값 계산`;
+}
+
+function saveRecord() {
+  if (currentMeasurements.length === 0) return;
+
+  const savedRecords = getSavedRecords();
+  const recordNumber = savedRecords.length + 1;
+
+  const newRecord = {
+    recordNumber,
+    savedAt: new Date().toISOString(),
+    measurements: currentMeasurements.map(m => ({
+      url: m.url,
+      score: m.metrics.score,
+      LCP_ms: m.metrics.LCP_ms,
+      FCP_ms: m.metrics.FCP_ms,
+      TBT_ms: m.metrics.TBT_ms
+    }))
+  };
+
+  savedRecords.push(newRecord);
+  saveSavedRecords(savedRecords);
+
+  // 현재 측정 결과 초기화
+  currentMeasurements = [];
+
+  renderSavedRecords();
+  updateRecordButtons();
+  showStatus(`${recordNumber}번째 기록이 저장되었습니다.`, '');
+}
+
+function renderSavedRecords() {
+  const savedRecords = getSavedRecords();
+  savedRecordsList.innerHTML = '';
+
+  if (savedRecords.length === 0) {
+    savedRecordsList.innerHTML = '<li class="no-records">저장된 기록이 없습니다.</li>';
+    return;
+  }
+
+  savedRecords.forEach(record => {
+    const li = document.createElement('li');
+    const date = new Date(record.savedAt).toLocaleString('ko-KR');
+    const urlCount = record.measurements.length;
+    li.innerHTML = `
+      <span>${record.recordNumber}회차 - ${urlCount}개 URL (${date})</span>
+      <button onclick="deleteRecord(${record.recordNumber})">삭제</button>
+    `;
+    savedRecordsList.appendChild(li);
+  });
+}
+
+function deleteRecord(recordNumber) {
+  let savedRecords = getSavedRecords();
+  savedRecords = savedRecords.filter(r => r.recordNumber !== recordNumber);
+
+  // 기록 번호 재정렬
+  savedRecords.forEach((record, index) => {
+    record.recordNumber = index + 1;
+  });
+
+  saveSavedRecords(savedRecords);
+  renderSavedRecords();
+  updateRecordButtons();
+  hideAvgResults();
+}
+
+function calculateAndShowAverage() {
+  const savedRecords = getSavedRecords();
+  if (savedRecords.length === 0) return;
+
+  const urls = getUrls();
+  const avgResults = [];
+
+  urls.forEach(url => {
+    let totalScore = 0, totalLCP = 0, totalFCP = 0, totalTBT = 0;
+    let count = 0;
+
+    savedRecords.forEach(record => {
+      const measurement = record.measurements.find(m => m.url === url);
+      if (measurement) {
+        totalScore += measurement.score;
+        totalLCP += measurement.LCP_ms;
+        totalFCP += measurement.FCP_ms;
+        totalTBT += measurement.TBT_ms;
+        count++;
+      }
+    });
+
+    if (count > 0) {
+      avgResults.push({
+        url,
+        avgScore: Math.round(totalScore / count),
+        avgLCP: Math.round(totalLCP / count),
+        avgFCP: Math.round(totalFCP / count),
+        avgTBT: Math.round(totalTBT / count),
+        count
+      });
+    }
+  });
+
+  renderAvgResults(avgResults, savedRecords.length);
+}
+
+function renderAvgResults(avgResults, recordCount) {
+  avgResultsSection.style.display = 'block';
+  avgResultsSection.innerHTML = `
+    <h3>${recordCount}회 측정 평균</h3>
+    <table class="avg-table">
+      <thead>
+        <tr>
+          <th>URL</th>
+          <th>평균 Score</th>
+          <th>평균 LCP (ms)</th>
+          <th>평균 FCP (ms)</th>
+          <th>평균 TBT (ms)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${avgResults.map(r => `
+          <tr>
+            <td title="${r.url}">${r.url}</td>
+            <td>${r.avgScore}</td>
+            <td>${r.avgLCP}</td>
+            <td>${r.avgFCP}</td>
+            <td>${r.avgTBT}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function hideAvgResults() {
+  avgResultsSection.style.display = 'none';
+  avgResultsSection.innerHTML = '';
 }

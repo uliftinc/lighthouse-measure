@@ -224,6 +224,123 @@ section h2 {
   padding: 20px;
 }
 
+/* 기록 저장 버튼 영역 */
+.record-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 15px;
+  gap: 10px;
+}
+
+.save-btn, .calc-btn {
+  padding: 10px 20px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.save-btn {
+  color: #fff;
+  background: #28a745;
+}
+
+.save-btn:hover:not(:disabled) {
+  background: #218838;
+}
+
+.calc-btn {
+  color: #fff;
+  background: #17a2b8;
+}
+
+.calc-btn:hover:not(:disabled) {
+  background: #138496;
+}
+
+.save-btn:disabled, .calc-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+/* 저장된 기록 목록 */
+.saved-records-section ul {
+  list-style: none;
+  margin-bottom: 15px;
+}
+
+.saved-records-section li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 15px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.saved-records-section li.no-records {
+  color: #888;
+  justify-content: center;
+}
+
+.saved-records-section li button {
+  padding: 5px 12px;
+  font-size: 0.85rem;
+  color: #ff4e42;
+  background: #fff;
+  border: 1px solid #ff4e42;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.saved-records-section li button:hover {
+  background: #ff4e42;
+  color: #fff;
+}
+
+/* 평균 결과 섹션 */
+.avg-results-section {
+  border-left: 4px solid #17a2b8;
+}
+
+.avg-results-section h3 {
+  font-size: 1.1rem;
+  color: #17a2b8;
+  margin-bottom: 15px;
+}
+
+.avg-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.avg-table th,
+.avg-table td {
+  padding: 12px 15px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+.avg-table th {
+  background: #e3f2fd;
+  font-weight: 600;
+  color: #555;
+  font-size: 0.85rem;
+}
+
+.avg-table tr:hover {
+  background: #f8f9fa;
+}
+
+.avg-table td:first-child {
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* 반응형 */
 @media (max-width: 600px) {
   .url-input-section .input-group {
