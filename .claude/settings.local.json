@@ -1,7 +1,15 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run serve:*)"
+      "Bash(npm run serve:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nchore: 프로젝트 초기 설정 완료\n\n- package.json 정리 \\(불필요한 scripts 제거\\)\n- CLAUDE.md 아키텍처 문서 업데이트\n- todolist.md 추가\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: server.js 재구현 \\(stateless API 서버\\)\n\n- Express 서버 포트 3000으로 설정\n- 정적 파일 제공 \\(web/ 폴더\\)\n- POST /api/measure 엔드포인트 구현\n- 상태 저장 없는 단순한 API 서버로 변경\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: measure.js 재구현 \\(단일 URL 측정 함수\\)\n\n- chrome-launcher로 headless Chrome 실행\n- Lighthouse Performance 카테고리만 측정\n- Throttling 비활성화 \\(실제 네트워크/CPU 성능\\)\n- LCP, FCP, TBT 추출 \\(ms 단위\\)\n- measureUrl 함수 export\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: index.html UI 재구현\n\n- URL 입력 필드 + 추가 버튼\n- URL 리스트 영역\n- 전체 측정 버튼\n- 결과 테이블 \\(URL, LCP, FCP, TBT, 측정 횟수\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: index.css 스타일 재구현\n\n- 기본 레이아웃 스타일\n- URL 입력/리스트 스타일\n- 결과 테이블 스타일\n- 측정 상태 표시 스타일\n- 반응형 디자인\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit:*)",
+      "Bash(curl:*)"
     ]
   }
 }
