@@ -292,6 +292,7 @@ section h2 {
 
 .saved-records-section li {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   padding: 10px 15px;
@@ -318,6 +319,59 @@ section h2 {
 .saved-records-section li button:hover {
   background: #ff4e42;
   color: #fff;
+}
+
+/* 기록 상세 */
+.record-item .record-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  flex: 1;
+}
+
+.record-item .record-header:hover {
+  color: #667eea;
+}
+
+.record-item .record-toggle {
+  font-size: 0.75rem;
+  color: #888;
+  transition: transform 0.2s;
+}
+
+.record-detail {
+  width: 100%;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.record-detail table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.record-detail th,
+.record-detail td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+.record-detail th {
+  background: #e9ecef;
+  font-weight: 600;
+  color: #555;
+  font-size: 0.8rem;
+}
+
+.record-detail td:first-child {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* 평균 결과 섹션 */

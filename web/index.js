@@ -343,14 +343,55 @@ function renderSavedRecords() {
 
   savedRecords.forEach(record => {
     const li = document.createElement('li');
+    li.className = 'record-item';
     const date = new Date(record.savedAt).toLocaleString('ko-KR');
     const urlCount = record.measurements.length;
     li.innerHTML = `
-      <span>${record.recordNumber}회차 - ${urlCount}개 URL (${date})</span>
-      <button onclick="deleteRecord(${record.recordNumber})">삭제</button>
+      <div class="record-header" onclick="toggleRecordDetail(${record.recordNumber})">
+        <span class="record-toggle">▶</span>
+        <span>${record.recordNumber}회차 - ${urlCount}개 URL (${date})</span>
+      </div>
+      <button onclick="event.stopPropagation(); deleteRecord(${record.recordNumber})">삭제</button>
+      <div class="record-detail" id="record-detail-${record.recordNumber}" style="display: none;">
+        <table>
+          <thead>
+            <tr>
+              <th>URL</th>
+              <th>Score</th>
+              <th>LCP (ms)</th>
+              <th>FCP (ms)</th>
+              <th>TBT (ms)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${record.measurements.map(m => `
+              <tr>
+                <td title="${m.url}">${m.url}</td>
+                <td>${m.score}</td>
+                <td>${m.LCP_ms}</td>
+                <td>${m.FCP_ms}</td>
+                <td>${m.TBT_ms}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
     `;
     savedRecordsList.appendChild(li);
   });
+}
+
+function toggleRecordDetail(recordNumber) {
+  const detailEl = document.getElementById(`record-detail-${recordNumber}`);
+  const headerEl = detailEl.parentElement.querySelector('.record-toggle');
+
+  if (detailEl.style.display === 'none') {
+    detailEl.style.display = 'block';
+    headerEl.textContent = '▼';
+  } else {
+    detailEl.style.display = 'none';
+    headerEl.textContent = '▶';
+  }
 }
 
 function deleteRecord(recordNumber) {
